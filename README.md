@@ -22,8 +22,10 @@ $ pip3 install -r requirements.txt
 
 ## Data
 `train.csv` and `test.csv` contain the training and test data.  
-`fixes_train.json` contains fixed budgets and revenues for some movies (keys represent `imdb_id` 
-of movies in the training set).
+`fixes_train_budget_revenue.json` contains fixed budgets and revenues for some movies (keys 
+represent `imdb_id` of movies) in the training set.  
+`fixes_genre.json` contains genre information for the examples in training and test set which do
+not have it.
 
 ## Results
 Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.
