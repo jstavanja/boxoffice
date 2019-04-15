@@ -20,6 +20,11 @@ $ pip3 install -r requirements.txt
 **Note 2**: this does not mean the code is *Python2.x*-compatible 
 (if it is, it's completely coincidental).
 
+## Data
+`train.csv` and `test.csv` contain the training and test data.  
+`fixes_train.json` contains fixed budgets and revenues for some movies (keys represent `imdb_id` 
+of movies in the training set).
+
 ## Results
 Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.
 The approaches are briefly described in the next section.  
