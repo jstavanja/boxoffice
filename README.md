@@ -21,8 +21,14 @@ $ pip3 install -r requirements.txt
 (if it is, it's completely coincidental).
 
 ## Results
-Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.  
+Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.
+The approaches are briefly described in the next section.  
 
 | Approach  | Offline  | Kaggle submission |  
 |:---------:|:--------:|:-----------------:|  
 | Baseline  |  3.70140 | 3.73362           |  
+
+## Approaches
+`Baseline`:  predict mean revenue of movies in training set for the movies of test set.
+70%-30% train-test split used for offline evaluation.
+
