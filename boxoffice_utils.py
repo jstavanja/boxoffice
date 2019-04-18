@@ -43,3 +43,16 @@ def fix_genres(df):
 
     return df
 
+
+# Adds runtime information for the examples in training/test set that currently don't have it
+def fix_runtime(df):
+    with open("data/fixes_runtime.json") as fix:
+        fix_mappings = json.load(fix)
+
+    for i in range(df.shape[0]):
+        imdb_id = df.at[i, "imdb_id"]
+        fix = fix_mappings.get(imdb_id, None)
+        if fix:
+            df.at[i, "runtime"] = fix
+
+    return df
