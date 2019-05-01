@@ -1,6 +1,22 @@
 import json
 import numpy as np
 from sklearn.metrics import mean_squared_log_error
+from sklearn.model_selection import train_test_split
+
+
+# Splits data `df` into 3 sets: training, validation and test. Validation set is
+# `train_prop`, `val_prop` and `test_prop` are floats and should sum together to 1
+def train_val_test_split(df, train_prop, val_prop, test_prop, seed=None):
+    train, val_test = train_test_split(df,
+                                       shuffle=True,
+                                       test_size=(val_prop + test_prop),
+                                       random_state=seed)
+    val, test = train_test_split(val_test,
+                                 shuffle=False,
+                                 test_size=(test_prop / (val_prop + test_prop)),
+                                 random_state=seed)
+
+    return train, val, test
 
 
 # Computes root mean squared logarithmic error
