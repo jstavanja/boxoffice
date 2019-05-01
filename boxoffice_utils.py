@@ -2,7 +2,9 @@ import json
 import numpy as np
 from sklearn.metrics import mean_squared_log_error
 from sklearn.model_selection import train_test_split
+
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import Ridge
 
 
 # Splits data `df` into 3 sets: training, validation and test. Validation set is
@@ -22,6 +24,10 @@ def train_val_test_split(df, train_prop, val_prop, test_prop, seed=None):
 
 # Computes root mean squared logarithmic error
 def rmsle(predicted, actual):
+    # if the predictions are negative, invert the sign of prediction
+    mask = predicted < 0
+    predicted[mask] = -predicted[mask]
+
     return np.sqrt(mean_squared_log_error(y_true=actual, y_pred=predicted))
 
 
@@ -79,8 +85,8 @@ def tune_knn(train_X, train_y, val_X, val_y, neigh_params, weight_params=None):
     if weight_params is None:
         weight_params = ["uniform"]
     best_weights, best_k, best_err = None, None, float("inf")
-    for curr_weights in weight_params:  #
-        for curr_neighs in neigh_params:  #
+    for curr_weights in weight_params:
+        for curr_neighs in neigh_params:
             print("Testing KNN regression for params: k={}, weights='{}'...".format(curr_neighs,
                                                                                     curr_weights))
             knn = KNeighborsRegressor(n_neighbors=curr_neighs,
@@ -95,3 +101,19 @@ def tune_knn(train_X, train_y, val_X, val_y, neigh_params, weight_params=None):
                 best_weights, best_k, best_err = curr_weights, curr_neighs, curr_error
 
     return best_k, best_weights, best_err
+
+
+def tune_ridge(train_X, train_y, val_X, val_y, alpha_params, seed=None):
+    best_alpha, best_err = None, float("inf")
+    for curr_alpha in alpha_params:
+        print("Testing ridge regression for params: alpha={:.3f}...".format(curr_alpha))
+        ridge = Ridge(alpha=curr_alpha, random_state=seed)
+        ridge.fit(train_X, train_y)
+        curr_preds = ridge.predict(val_X)
+        curr_error = rmsle(curr_preds, val_y)
+        print("Error: {:.5f}...".format(curr_error))
+
+        if curr_error < best_err:
+            best_alpha, best_err = curr_alpha, curr_error
+
+    return best_alpha, best_err

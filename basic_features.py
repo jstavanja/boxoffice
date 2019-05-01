@@ -1,7 +1,8 @@
 import pandas as pd
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, \
-    train_val_test_split, rmsle, tune_knn
+    train_val_test_split, rmsle, tune_knn, tune_ridge
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import Ridge
 
 if __name__ == "__main__":
     df_offline = pd.read_csv("data/train.csv", header=0)
@@ -37,6 +38,20 @@ if __name__ == "__main__":
     offline_error = rmsle(offline_test_preds, test_y)
     print("[KNN] Offline RMSLE: {:.5f}".format(offline_error))
 
+    best_alpha, best_err = tune_ridge(train_X, train_y, val_X, val_y,
+                                      alpha_params=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1,
+                                                    0.2, 0.5, 1.0, 2.0, 5.0, 10.0],
+                                      seed=1337)
+
+    print("Winning parameters for Ridge regression: alpha={:.3f}... "
+          "Obtained error: {:.5f}".format(best_alpha, best_err))
+    ridge = Ridge(alpha=best_alpha,
+                  random_state=1337)
+    ridge.fit(pd.concat([train_X, val_X], ignore_index=True),
+              pd.concat([train_y, val_y], ignore_index=True))
+    offline_test_preds = ridge.predict(test_X)
+    offline_error = rmsle(offline_test_preds, test_y)
+    print("[Ridge] Offline RMSLE: {:.5f}".format(offline_error))
 
 
 
