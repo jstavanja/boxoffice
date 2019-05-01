@@ -1,6 +1,6 @@
 import pandas as pd
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, \
-    train_val_test_split, rmsle
+    train_val_test_split, rmsle, tune_knn
 from sklearn.neighbors import KNeighborsRegressor
 
 if __name__ == "__main__":
@@ -13,7 +13,8 @@ if __name__ == "__main__":
     # TODO: turn some other basic features into numbers (e.g. using dummy variables) and use them
     FEATS = ["runtime"]
     LABEL = ["revenue"]
-    train, val, test = train_val_test_split(df_offline, 0.7, 0.1, 0.2, seed=1337)
+    train, val, test = train_val_test_split(df_offline, train_prop=0.7, val_prop=0.1,
+                                            test_prop=0.2, seed=1337)
     train_X, train_y = train[FEATS], train[LABEL]
     val_X, val_y = val[FEATS], val[LABEL]
     test_X, test_y = test[FEATS], test[LABEL]
@@ -21,26 +22,12 @@ if __name__ == "__main__":
                                                                                    val.shape[0],
                                                                                    test.shape[0]))
 
-    # TODO: put this into a `tune_knn(...)` function in boxoffice_utils.py
-    best_weights, best_k, best_err = None, None, float("inf")
-    for curr_weights in ["uniform", "distance"]:
-        for curr_neighs in [1, 3, 5, 10, 20]:
-            print("Testing KNN regression for params: k={}, weights='{}'...".format(curr_neighs,
-                                                                                    curr_weights))
-            knn = KNeighborsRegressor(n_neighbors=curr_neighs,
-                                      weights=curr_weights,
-                                      n_jobs=-1)
-            knn.fit(train_X, train_y)
-            curr_preds = knn.predict(val_X)
-            curr_error = rmsle(curr_preds, val_y)
-            print("Error: {:.5f}...".format(curr_error))
+    best_k, best_weights, best_err = tune_knn(train_X, train_y, val_X, val_y,
+                                              neigh_params=[1, 3, 5, 10, 20],
+                                              weight_params=["uniform", "distance"])
 
-            if curr_error < best_err:
-                best_weights, best_k, best_err = curr_weights, curr_neighs, curr_error
-
-    print("Winning parameters for KNN: k={:d}, weights='{:s}'... Obtained error: {:.5f}".format(best_k,
-                                                                                                best_weights,
-                                                                                                best_err))
+    print("Winning parameters for KNN: k={:d}, weights='{:s}'... "
+          "Obtained error: {:.5f}".format(best_k, best_weights, best_err))
     knn = KNeighborsRegressor(n_neighbors=best_k,
                               weights=best_weights,
                               n_jobs=-1)
