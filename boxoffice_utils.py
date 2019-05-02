@@ -205,17 +205,62 @@ def display_results(res):
 
 def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models, seed=None):
     """
+    Perform (1) parameter tuning and (2) prediction on offline test set using the models,
+    specified in the `models` dictionary.
+
+    Supported models and their parameters:
+
+    `"knn"` ("neigh_params", "weight_params"),
+
+    "ridge" ("alpha_params"),
+
+    "svr" ("c_params", "eps_params"),
+
+    "rf" ("n_estimators_params"),
+
+    "xgb" ("lr_params", "lambda_params", "num_rounds_params").
+
+    Example of the model properties (KNN experiments will use reasonable defaults for parameter
+    options, gradient boosting experiments will use provided lambda parameters and resonable
+    defaults for every other parameter):
+
+    >>>
+    model_props = {
+        "knn": {},
+        "xgb": {"lr_params": [0.01, 0.02]}
+    }
+
     Parameters
     ----------
     df_offline: pd.DataFrame
-    :param feats:
-    :param label:
-    :param train_prop:
-    :param val_prop:
-    :param test_prop:
-    :param models:
-    :param seed:
-    :return:
+        Offline dataset (in our case the DataFrame, containing data from 'data/train.csv')
+
+    feats: list of str
+        Column names in df_offline to use as features
+
+    label: list of str
+        Label name in df_offline to use as label
+
+    train_prop: float
+        Proportion of data in df_offline to use as training set
+
+    val_prop: float
+        Proportion of data in df_offline to use as validation set
+
+    test_prop: float
+        Proportion of data in df_offline to use as (offline) test set
+
+    models: dict
+        Models to run and a list of parameters to use when tuning them
+
+    seed: int, defalt: None
+        Random state to ensure reproducibility of experiment. Leave None if you
+        want to run random experiment
+
+    Returns
+    -------
+    res: dict of dict
+        Results (in form of a dict) for each model, specified in models
     """
     results = {}
     train, val, test = train_val_test_split(df_offline, train_prop=train_prop, val_prop=val_prop,
