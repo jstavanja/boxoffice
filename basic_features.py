@@ -1,8 +1,10 @@
 import pandas as pd
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, \
-    train_val_test_split, rmsle, tune_knn, tune_ridge
+    train_val_test_split, rmsle, tune_knn, tune_ridge, tune_svr, tune_rf
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
 
 if __name__ == "__main__":
     df_offline = pd.read_csv("data/train.csv", header=0)
@@ -23,6 +25,9 @@ if __name__ == "__main__":
                                                                                    val.shape[0],
                                                                                    test.shape[0]))
 
+    # ------------------------------------------
+    # k-nearest neighbors regression
+    # ------------------------------------------
     best_k, best_weights, best_err = tune_knn(train_X, train_y, val_X, val_y,
                                               neigh_params=[1, 3, 5, 10, 20],
                                               weight_params=["uniform", "distance"])
@@ -38,6 +43,9 @@ if __name__ == "__main__":
     offline_error = rmsle(offline_test_preds, test_y)
     print("[KNN] Offline RMSLE: {:.5f}".format(offline_error))
 
+    # ------------------------------------------
+    # ridge regression
+    # ------------------------------------------
     best_alpha, best_err = tune_ridge(train_X, train_y, val_X, val_y,
                                       alpha_params=[0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1,
                                                     0.2, 0.5, 1.0, 2.0, 5.0, 10.0],
@@ -53,8 +61,44 @@ if __name__ == "__main__":
     offline_error = rmsle(offline_test_preds, test_y)
     print("[Ridge] Offline RMSLE: {:.5f}".format(offline_error))
 
+    # ------------------------------------------
+    # support vector regression
+    # ------------------------------------------
+    best_c, best_eps, best_err = tune_svr(train_X, train_y, val_X, val_y,
+                                          c_params=[0.001, 0.005, 0.01, 0.05, 0.1, 0.2, 0.5,
+                                                    1.0, 2.0, 5.0, 10.0],
+                                          eps_params=[0.0, 0.01, 0.02, 0.1, 0.2, 0.5,
+                                                      1.0, 2.0, 5.0])
 
+    print("Winning parameters for SVM regression: c={:.3f}, eps={:.2f}... "
+          "Obtained error: {:.5f}".format(best_c, best_eps, best_err))
+    svr = SVR(C=best_c,
+              epsilon=best_eps,
+              gamma="scale")
+    svr.fit(pd.concat([train_X, val_X], ignore_index=True),
+            pd.concat([train_y, val_y], ignore_index=True))
+    offline_test_preds = svr.predict(test_X)
+    offline_error = rmsle(offline_test_preds, test_y)
+    print("[SVR] Offline RMSLE: {:.5f}".format(offline_error))
 
+    # ------------------------------------------
+    # random forest regression
+    # ------------------------------------------
+    best_n_trees, best_err = tune_rf(train_X, train_y, val_X, val_y,
+                                     n_estimators_param=[50, 100, 200, 500, 1000, 2000, 5000],
+                                     seed=1337)
+
+    print("Winning parameters for RF regression: n_estimators={}... "
+          "Obtained error: {:.5f}".format(best_n_trees, best_err))
+    rf = RandomForestRegressor(n_estimators=best_n_trees,
+                               criterion="mae",
+                               random_state=1337,
+                               n_jobs=-1)
+    rf.fit(pd.concat([train_X, val_X], ignore_index=True),
+           pd.concat([train_y, val_y], ignore_index=True))
+    offline_test_preds = rf.predict(test_X)
+    offline_error = rmsle(offline_test_preds, test_y)
+    print("[RF regression] Offline RMSLE: {:.5f}".format(offline_error))
 
 
 

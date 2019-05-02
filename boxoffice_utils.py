@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
 
 
 # Splits data `df` into 3 sets: training, validation and test. Validation set is
@@ -107,9 +109,9 @@ def tune_ridge(train_X, train_y, val_X, val_y, alpha_params, seed=None):
     best_alpha, best_err = None, float("inf")
     for curr_alpha in alpha_params:
         print("Testing ridge regression for params: alpha={:.3f}...".format(curr_alpha))
-        ridge = Ridge(alpha=curr_alpha, random_state=seed)
-        ridge.fit(train_X, train_y)
-        curr_preds = ridge.predict(val_X)
+        curr_ridge = Ridge(alpha=curr_alpha, random_state=seed)
+        curr_ridge.fit(train_X, train_y)
+        curr_preds = curr_ridge.predict(val_X)
         curr_error = rmsle(curr_preds, val_y)
         print("Error: {:.5f}...".format(curr_error))
 
@@ -117,3 +119,45 @@ def tune_ridge(train_X, train_y, val_X, val_y, alpha_params, seed=None):
             best_alpha, best_err = curr_alpha, curr_error
 
     return best_alpha, best_err
+
+
+def tune_svr(train_X, train_y, val_X, val_y, c_params, eps_params):
+    best_c, best_eps, best_err = None, None, float("inf")
+    # lower C = stricter regularization
+    for curr_c in c_params:
+        for curr_eps in eps_params:
+            print("Testing SVM regression for params: c={:.3f}, eps={:.2f}...".format(curr_c,
+                                                                                      curr_eps))
+            curr_svr = SVR(C=curr_c,
+                           epsilon=curr_eps,
+                           gamma="scale")
+            curr_svr.fit(train_X, train_y)
+            curr_preds = curr_svr.predict(val_X)
+            curr_error = rmsle(curr_preds, val_y)
+            print("Error: {:.5f}...".format(curr_error))
+            if curr_error < best_err:
+                best_c = curr_c
+                best_eps = curr_eps
+                best_err = curr_error
+
+    return best_c, best_eps, best_err
+
+
+def tune_rf(train_X, train_y, val_X, val_y, n_estimators_param, seed=None):
+    best_n_trees, best_err = None, float("inf")
+    for curr_n_trees in n_estimators_param:
+        print("Testing RF regression for params: n_estimators={}...".format(curr_n_trees))
+        # use MAE criterion -> MSE squaring the already huge errors might cause numerical issues
+        curr_rf = RandomForestRegressor(n_estimators=curr_n_trees,
+                                        criterion="mae",
+                                        random_state=seed,
+                                        n_jobs=-1)
+        curr_rf.fit(train_X, train_y)
+        curr_preds = curr_rf.predict(val_X)
+        curr_error = rmsle(curr_preds, val_y)
+        print("Error: {:.5f}...".format(curr_error))
+        if curr_error < best_err:
+            best_n_trees = curr_n_trees
+            best_err = curr_error
+
+    return best_n_trees, best_err
