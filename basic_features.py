@@ -1,10 +1,11 @@
 import pandas as pd
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, \
-    train_val_test_split, rmsle, tune_knn, tune_ridge, tune_svr, tune_rf
+    train_val_test_split, rmsle, tune_knn, tune_ridge, tune_svr, tune_rf, tune_xgb
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
+import xgboost as xgb
 
 if __name__ == "__main__":
     df_offline = pd.read_csv("data/train.csv", header=0)
@@ -100,6 +101,32 @@ if __name__ == "__main__":
     offline_error = rmsle(offline_test_preds, test_y)
     print("[RF regression] Offline RMSLE: {:.5f}".format(offline_error))
 
+    # ------------------------------------------
+    # gradient boosting regression
+    # ------------------------------------------
+    dtrain = xgb.DMatrix(train_X, label=train_y)
+    dval = xgb.DMatrix(val_X)
+    dtest = xgb.DMatrix(test_X)
+
+    best_lr, best_lambda, best_rounds, best_err = tune_xgb(train_X, train_y, val_X, val_y,
+                                                           lr_params=[0.001, 0.005, 0.1, 0.2, 0.5],
+                                                           lambda_params=[0.01, 0.05, 0.1, 0.2,
+                                                                          0.5, 1.0],
+                                                           num_rounds_params=[10, 50, 100, 200,
+                                                                              500, 1000])
+
+    print("Winning parameters for XGB regression: learning_rate={:.3f}, l2_lambda={:.2f}, "
+          "num_boosting_rounds={:d}... Obtained error: {:.5f}".format(best_lr,
+                                                                      best_lambda,
+                                                                      best_rounds,
+                                                                      best_err))
+    param = {"n_gpus": 0, "nthread": -1, "learning_rate": best_lr, "reg_lambda": best_lambda}
+    bst = xgb.train(param, xgb.DMatrix(pd.concat([train_X, val_X], ignore_index=True),
+                                       label=pd.concat([train_y, val_y], ignore_index=True)),
+                    num_boost_round=best_rounds)
+    offline_test_preds = bst.predict(dtest)
+    offline_error = rmsle(offline_test_preds, test_y)
+    print("[XGBoost regression] Offline RMSLE: {:.5f}".format(offline_error))
 
 
 

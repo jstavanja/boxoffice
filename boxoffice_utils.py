@@ -1,8 +1,9 @@
 import json
 import numpy as np
+import xgboost as xgb
+
 from sklearn.metrics import mean_squared_log_error
 from sklearn.model_selection import train_test_split
-
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
@@ -161,3 +162,31 @@ def tune_rf(train_X, train_y, val_X, val_y, n_estimators_param, seed=None):
             best_err = curr_error
 
     return best_n_trees, best_err
+
+
+def tune_xgb(train_X, train_y, val_X, val_y, lr_params, lambda_params, num_rounds_params):
+    dtrain = xgb.DMatrix(train_X, label=train_y)
+    dval = xgb.DMatrix(val_X)
+
+    best_lr, best_lambda, best_rounds, best_err = None, None, None, float("inf")
+    param = {"n_gpus": 0, "nthread": -1, "learning_rate": 0.001, "reg_lambda": 1.0}
+    for curr_lr in lr_params:
+        for curr_reg_lambda in lambda_params:
+            for curr_num_rounds in num_rounds_params:
+                print("Testing XGB regression for params: learning_rate={:.3f}, l2_lambda={:.2f}, "
+                      "num_boosting_rounds={:d}...".format(curr_lr,
+                                                           curr_reg_lambda,
+                                                           curr_num_rounds))
+                param["learning_rate"] = curr_lr
+                param["reg_lambda"] = curr_reg_lambda
+                curr_bst = xgb.train(param, dtrain, num_boost_round=curr_num_rounds)
+                curr_preds = curr_bst.predict(dval)
+                curr_error = rmsle(curr_preds, val_y)
+                print("Error: {:.5f}...".format(curr_error))
+                if curr_error < best_err:
+                    best_lr = curr_lr
+                    best_lambda = curr_reg_lambda
+                    best_rounds = curr_num_rounds
+                    best_err = curr_error
+
+    return best_lr, best_lambda, best_rounds, best_err
