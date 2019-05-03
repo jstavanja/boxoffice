@@ -34,8 +34,15 @@ The approaches are briefly described in the next section.
 | Approach  | Offline  | Kaggle submission |  
 |:---------:|:--------:|:-----------------:|  
 | Baseline  |  3.70140 | 3.73362           |  
+| Basic features  |  2.34904 | 2.88622     |  
 
 ## Approaches
 `Baseline`:  predict mean revenue of movies in training set for the movies of test set.
 70%-30% train-test split used for offline evaluation.
 
+`Basic features`: use 3 basic features: genres, original_language and runtime. 
+Encode genres and original_language using 1-hot-encoding. Add new feature (count 
+of genres provided for film). Group less frequent original_languages (< 5 occurences
+in training set) under 'other' attribute.
+70%-10%-20% train-val-test-split used for offline evaluation. Best score obtained 
+with XGBoost.

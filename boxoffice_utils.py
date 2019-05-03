@@ -37,6 +37,10 @@ def rmsle(predicted, actual):
 
 # Makes submission file for Kaggle - assumes DataFrame `df` contains columns "id" and "revenue"
 def write_submission(df, path):
+    # if the predictions are negative, invert the sign of prediction
+    mask = df["revenue"] < 0
+    df["revenue"][mask] = -df["revenue"][mask]
+
     df.to_csv(path, index=False)
     print("Wrote submission to '{}'...".format(path))
 
@@ -408,3 +412,71 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
     display_results(results)
     return results
 
+
+def onehot_genres(df, genre_encoder):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    genre_encoder: dict
+        Maps genre names (str) to column indices (int) in newly created one-hot attributes
+
+    Returns
+    -------
+    extended_df, genre_cols:
+        Augmented DataFrame ([0]) and newly generated column (attribute) names ([1])
+    """
+    # Generate column names for the genre one-hot encoded attributes
+    genre_cols = [None for _ in range(len(genre_encoder) + 1)]
+    for genre, idx in genre_encoder.items():
+        genre_cols[idx] = "{}".format(genre)
+    genre_cols[-1] = "genre_count"
+
+    genre_onehot = np.zeros((df.shape[0], len(genre_encoder) + 1))
+    for i, row in enumerate(df["genres"]):
+        # one dummy feature for each genre + count of genres specified for current movie
+        genre_count = 0
+        json_row = json.loads(row.replace("'", "\""))
+        for entry in json_row:
+            curr_genre = entry["name"]
+            genre_onehot[i, genre_encoder[curr_genre]] = 1
+            genre_count += 1
+        genre_onehot[i, -1] = genre_count
+
+    extended_df = df.join(pd.DataFrame(genre_onehot, columns=genre_cols))
+    return extended_df, genre_cols
+
+
+def onehot_original_language(df, lang_encoder):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    lang_encoder: dict
+        Maps language names (str) to column indices (int) in newly created one-hot attributes
+
+    Returns
+    -------
+    extended_df, lang_cols:
+        Augmented DataFrame ([0]) and newly generated column (attribute) names ([1])
+    """
+    # Generate column names for the original_language one-hot encoded attributes
+    lang_cols = [None for _ in lang_encoder]
+    for lang, idx in lang_encoder.items():
+        lang_cols[idx] = "{}".format(lang)
+
+    original_lang_onehot = np.zeros((df.shape[0], len(lang_encoder)))
+    for i, row in enumerate(df["original_language"]):
+        # one dummy feature for each original language (with enough examples);
+        # use "other_lang" attribute for less-represented languages
+        idx_lang = lang_encoder.get(row, lang_encoder["other_lang"])
+        original_lang_onehot[i, idx_lang] = 1
+
+    extended_df = df.join(pd.DataFrame(original_lang_onehot, columns=lang_cols))
+    return extended_df, lang_cols
