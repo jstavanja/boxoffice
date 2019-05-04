@@ -1,3 +1,4 @@
+import warnings
 import json
 import pandas as pd
 import numpy as np
@@ -9,6 +10,10 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.utils.validation import DataConversionWarning
+
+# suppress annoying warning that shows up when training some classifiers with sklearn
+warnings.filterwarnings("ignore", category=DataConversionWarning)
 
 
 # Splits data `df` into 3 sets: training, validation and test. Validation set is
@@ -142,51 +147,63 @@ def tune_ridge(train_X, train_y, alpha_params, seed=None, k=5):
     return best_alpha, best_err
 
 
-def tune_svr(train_X, train_y, val_X, val_y, c_params, eps_params):
+def tune_svr(train_X, train_y, c_params, eps_params, k=5):
+    kf = KFold(n_splits=k)
     best_c, best_eps, best_err = None, None, float("inf")
     # lower C = stricter regularization
     for curr_c in c_params:
         for curr_eps in eps_params:
             print("Testing SVM regression for params: c={:.3f}, eps={:.2f}...".format(curr_c,
                                                                                       curr_eps))
-            curr_svr = SVR(C=curr_c,
-                           epsilon=curr_eps,
-                           gamma="scale")
-            curr_svr.fit(train_X, train_y)
-            curr_preds = curr_svr.predict(val_X)
-            curr_error = rmsle(curr_preds, val_y)
-            print("Error: {:.5f}...".format(curr_error))
+            errors_folds = []
+            for train_idx, test_idx in kf.split(train_X):
+                curr_train_X, curr_train_y = train_X.iloc[train_idx, :], train_y.iloc[train_idx, :]
+                curr_test_X, curr_test_y = train_X.iloc[test_idx, :], train_y.iloc[test_idx, :]
+
+                curr_svr = SVR(C=curr_c, epsilon=curr_eps, gamma="scale")
+                curr_svr.fit(curr_train_X, curr_train_y)
+                curr_preds = curr_svr.predict(curr_test_X)
+
+                errors_folds.append(rmsle(curr_preds, curr_test_y))
+
+            curr_error = np.mean(errors_folds)
+            print("... Obtained error: {:.5f}".format(curr_error))
             if curr_error < best_err:
-                best_c = curr_c
-                best_eps = curr_eps
-                best_err = curr_error
+                best_c, best_eps, best_err = curr_c, curr_eps, curr_error
 
     return best_c, best_eps, best_err
 
 
-def tune_rf(train_X, train_y, val_X, val_y, n_estimators_params, seed=None):
+def tune_rf(train_X, train_y, n_estimators_params, seed=None, k=5):
+    kf = KFold(n_splits=k)
     best_n_trees, best_err = None, float("inf")
     for curr_n_trees in n_estimators_params:
         print("Testing RF regression for params: n_estimators={}...".format(curr_n_trees))
-        # use MAE criterion -> MSE squaring the already huge errors might cause numerical issues
-        curr_rf = RandomForestRegressor(n_estimators=curr_n_trees,
-                                        criterion="mae",
-                                        random_state=seed,
-                                        n_jobs=-1)
-        curr_rf.fit(train_X, train_y)
-        curr_preds = curr_rf.predict(val_X)
-        curr_error = rmsle(curr_preds, val_y)
-        print("Error: {:.5f}...".format(curr_error))
+
+        errors_folds = []
+        for train_idx, test_idx in kf.split(train_X):
+            curr_train_X, curr_train_y = train_X.iloc[train_idx, :], train_y.iloc[train_idx, :]
+            curr_test_X, curr_test_y = train_X.iloc[test_idx, :], train_y.iloc[test_idx, :]
+
+            # use MAE criterion -> MSE squaring the already huge errors might cause numerical issues
+            curr_rf = RandomForestRegressor(n_estimators=curr_n_trees,
+                                            criterion="mae",
+                                            random_state=seed,
+                                            n_jobs=-1)
+            curr_rf.fit(curr_train_X, curr_train_y)
+            curr_preds = curr_rf.predict(curr_test_X)
+            errors_folds.append(rmsle(curr_preds, curr_test_y))
+
+        curr_error = np.mean(errors_folds)
+        print("... Obtained error: {:.5f}".format(curr_error))
         if curr_error < best_err:
-            best_n_trees = curr_n_trees
-            best_err = curr_error
+            best_n_trees, best_err = curr_n_trees, curr_error
 
     return best_n_trees, best_err
 
 
-def tune_xgb(train_X, train_y, val_X, val_y, lr_params, lambda_params, num_rounds_params):
-    dtrain = xgb.DMatrix(train_X, label=train_y)
-    dval = xgb.DMatrix(val_X)
+def tune_xgb(train_X, train_y, lr_params, lambda_params, num_rounds_params, k=5):
+    kf = KFold(n_splits=k)
 
     best_lr, best_lambda, best_rounds, best_err = None, None, None, float("inf")
     param = {"n_gpus": 0, "nthread": -1, "learning_rate": 0.001, "reg_lambda": 1.0}
@@ -199,15 +216,26 @@ def tune_xgb(train_X, train_y, val_X, val_y, lr_params, lambda_params, num_round
                                                            curr_num_rounds))
                 param["learning_rate"] = curr_lr
                 param["reg_lambda"] = curr_reg_lambda
-                curr_bst = xgb.train(param, dtrain, num_boost_round=curr_num_rounds)
-                curr_preds = curr_bst.predict(dval)
-                curr_error = rmsle(curr_preds, val_y)
-                print("Error: {:.5f}...".format(curr_error))
+
+                errors_folds = []
+                for train_idx, test_idx in kf.split(train_X):
+                    curr_train_X, curr_train_y = train_X.iloc[train_idx, :], \
+                                                 train_y.iloc[train_idx, :]
+                    curr_test_X, curr_test_y = train_X.iloc[test_idx, :], \
+                                               train_y.iloc[test_idx, :]
+
+                    curr_dtrain = xgb.DMatrix(curr_train_X, label=curr_train_y)
+                    curr_dtest = xgb.DMatrix(curr_test_X)
+
+                    curr_bst = xgb.train(param, curr_dtrain, num_boost_round=curr_num_rounds)
+                    curr_preds = curr_bst.predict(curr_dtest)
+                    errors_folds.append(rmsle(curr_preds, curr_test_y))
+
+                curr_error = np.mean(errors_folds)
+                print("... Obtained error: {:.5f}".format(curr_error))
                 if curr_error < best_err:
-                    best_lr = curr_lr
-                    best_lambda = curr_reg_lambda
-                    best_rounds = curr_num_rounds
-                    best_err = curr_error
+                    best_lr, best_lambda = curr_lr, curr_reg_lambda
+                    best_rounds, best_err = curr_num_rounds, curr_error
 
     return best_lr, best_lambda, best_rounds, best_err
 
@@ -222,10 +250,11 @@ def display_results(res):
             print("'{}': {}".format(prop, value))
 
 
-def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models, seed=None, k=5):
+def run_models(df_offline, feats, label, test_prop, models, seed=None, k=5):
     """
     Perform (1) parameter tuning and (2) prediction on offline test set using the models,
-    specified in the `models` dictionary.
+    specified in the `models` dictionary. K-fold cross validation is used for parameter
+    tuning.
 
     Supported models and their parameters:
 
@@ -260,12 +289,6 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
     label: list of str
         Label name in df_offline to use as label
 
-    train_prop: float
-        Proportion of data in df_offline to use as training set
-
-    val_prop: float
-        Proportion of data in df_offline to use as validation set
-
     test_prop: float
         Proportion of data in df_offline to use as (offline) test set
 
@@ -290,6 +313,7 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
                                    test_size=test_prop,
                                    random_state=seed)
     print("{} examples in training and {} in test set...".format(train.shape[0], test.shape[0]))
+    print("Using k = {}...".format(k))
 
     # only use the provided features and label
     train_X, train_y = train[feats], train[label]
@@ -351,17 +375,17 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         eps_params = svr_properties.get("eps_params", [0.0, 0.01, 0.02, 0.1, 0.2, 0.5, 1.0,
                                                        2.0, 5.0])
 
-        best_c, best_eps, best_err = tune_svr(train_X, train_y, val_X, val_y,
+        best_c, best_eps, best_err = tune_svr(train_X, train_y,
                                               c_params=c_params,
-                                              eps_params=eps_params)
+                                              eps_params=eps_params,
+                                              k=k)
 
         print("Winning parameters for SVM regression: c={:.3f}, eps={:.2f}... "
               "Obtained error: {:.5f}".format(best_c, best_eps, best_err))
         svr = SVR(C=best_c,
                   epsilon=best_eps,
                   gamma="scale")
-        svr.fit(pd.concat([train_X, val_X], ignore_index=True),
-                pd.concat([train_y, val_y], ignore_index=True))
+        svr.fit(train_X, train_y)
         offline_test_preds = svr.predict(test_X)
         offline_error = rmsle(offline_test_preds, test_y)
 
@@ -376,9 +400,10 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         n_estimators_params = rf_properties.get("n_estimators_params", [50, 100, 200, 500, 1000,
                                                                         2000, 5000])
 
-        best_n_trees, best_err = tune_rf(train_X, train_y, val_X, val_y,
+        best_n_trees, best_err = tune_rf(train_X, train_y,
                                          n_estimators_params=n_estimators_params,
-                                         seed=seed)
+                                         seed=seed,
+                                         k=k)
 
         print("Winning parameters for RF regression: n_estimators={}... "
               "Obtained error: {:.5f}".format(best_n_trees, best_err))
@@ -386,8 +411,7 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
                                    criterion="mae",
                                    random_state=seed,
                                    n_jobs=-1)
-        rf.fit(pd.concat([train_X, val_X], ignore_index=True),
-               pd.concat([train_y, val_y], ignore_index=True))
+        rf.fit(train_X, train_y)
         offline_test_preds = rf.predict(test_X)
         offline_error = rmsle(offline_test_preds, test_y)
 
@@ -403,10 +427,11 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         num_rounds_params = xgb_properties.get("num_rounds_params",
                                                [10, 50, 100, 200, 500, 1000])
 
-        best_lr, best_lambda, best_rounds, best_err = tune_xgb(train_X, train_y, val_X, val_y,
+        best_lr, best_lambda, best_rounds, best_err = tune_xgb(train_X, train_y,
                                                                lr_params=lr_params,
                                                                lambda_params=lambda_params,
-                                                               num_rounds_params=num_rounds_params)
+                                                               num_rounds_params=num_rounds_params,
+                                                               k=k)
 
         print("Winning parameters for XGB regression: learning_rate={:.3f}, l2_lambda={:.2f}, "
               "num_boosting_rounds={:d}... Obtained error: {:.5f}".format(best_lr,
@@ -414,8 +439,7 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
                                                                           best_rounds,
                                                                           best_err))
         param = {"n_gpus": 0, "nthread": -1, "learning_rate": best_lr, "reg_lambda": best_lambda}
-        bst = xgb.train(param, xgb.DMatrix(pd.concat([train_X, val_X], ignore_index=True),
-                                           label=pd.concat([train_y, val_y], ignore_index=True)),
+        bst = xgb.train(param, xgb.DMatrix(train_X, label=train_y),
                         num_boost_round=best_rounds)
         offline_test_preds = bst.predict(xgb.DMatrix(test_X))
         offline_error = rmsle(offline_test_preds, test_y)

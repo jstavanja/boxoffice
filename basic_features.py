@@ -53,10 +53,9 @@ if __name__ == "__main__":
     #                "xgb": {}}
     run_models(df_offline, FEATS, LABEL,
                models=model_props,
-               train_prop=0.7,
-               val_prop=0.1,
                test_prop=0.2,
-               seed=1337)
+               seed=1337,
+               k=5)
 
     # -------------------------
     # PREPARE A SUBMISSION FILE
