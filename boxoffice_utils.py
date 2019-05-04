@@ -4,7 +4,7 @@ import numpy as np
 import xgboost as xgb
 
 from sklearn.metrics import mean_squared_log_error
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.linear_model import Ridge
 from sklearn.svm import SVR
@@ -89,38 +89,53 @@ def fix_runtime(df):
     return df
 
 
-def tune_knn(train_X, train_y, val_X, val_y, neigh_params, weight_params=None):
+def tune_knn(train_X, train_y, neigh_params, weight_params=None, k=5):
     if weight_params is None:
         weight_params = ["uniform"]
+
+    kf = KFold(n_splits=k)
     best_weights, best_k, best_err = None, None, float("inf")
     for curr_weights in weight_params:
         for curr_neighs in neigh_params:
             print("Testing KNN regression for params: k={}, weights='{}'...".format(curr_neighs,
                                                                                     curr_weights))
-            knn = KNeighborsRegressor(n_neighbors=curr_neighs,
-                                      weights=curr_weights,
-                                      n_jobs=-1)
-            knn.fit(train_X, train_y)
-            curr_preds = knn.predict(val_X)
-            curr_error = rmsle(curr_preds, val_y)
-            print("Error: {:.5f}...".format(curr_error))
+            errors_folds = []
+            for train_idx, test_idx in kf.split(train_X):
+                curr_train_X, curr_train_y = train_X.iloc[train_idx, :], train_y.iloc[train_idx, :]
+                curr_test_X, curr_test_y = train_X.iloc[test_idx, :], train_y.iloc[test_idx, :]
+                knn = KNeighborsRegressor(n_neighbors=curr_neighs,
+                                          weights=curr_weights,
+                                          n_jobs=-1)
+                knn.fit(curr_train_X, curr_train_y)
+                curr_preds = knn.predict(curr_test_X)
+                errors_folds.append(rmsle(curr_preds, curr_test_y))
 
+            curr_error = np.mean(errors_folds)
+            print("... Obtained error: {:.5f}".format(curr_error))
             if curr_error < best_err:
                 best_weights, best_k, best_err = curr_weights, curr_neighs, curr_error
 
     return best_k, best_weights, best_err
 
 
-def tune_ridge(train_X, train_y, val_X, val_y, alpha_params, seed=None):
+def tune_ridge(train_X, train_y, alpha_params, seed=None, k=5):
+    kf = KFold(n_splits=k)
     best_alpha, best_err = None, float("inf")
     for curr_alpha in alpha_params:
         print("Testing ridge regression for params: alpha={:.3f}...".format(curr_alpha))
-        curr_ridge = Ridge(alpha=curr_alpha, random_state=seed)
-        curr_ridge.fit(train_X, train_y)
-        curr_preds = curr_ridge.predict(val_X)
-        curr_error = rmsle(curr_preds, val_y)
-        print("Error: {:.5f}...".format(curr_error))
+        errors_folds = []
+        for train_idx, test_idx in kf.split(train_X):
+            curr_train_X, curr_train_y = train_X.iloc[train_idx, :], train_y.iloc[train_idx, :]
+            curr_test_X, curr_test_y = train_X.iloc[test_idx, :], train_y.iloc[test_idx, :]
 
+            curr_ridge = Ridge(alpha=curr_alpha, random_state=seed)
+            curr_ridge.fit(curr_train_X, curr_train_y)
+            curr_preds = curr_ridge.predict(curr_test_X)
+
+            errors_folds.append(rmsle(curr_preds, curr_test_y))
+
+        curr_error = np.mean(errors_folds)
+        print("... Obtained error: {:.5f}".format(curr_error))
         if curr_error < best_err:
             best_alpha, best_err = curr_alpha, curr_error
 
@@ -207,7 +222,7 @@ def display_results(res):
             print("'{}': {}".format(prop, value))
 
 
-def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models, seed=None):
+def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models, seed=None, k=5):
     """
     Perform (1) parameter tuning and (2) prediction on offline test set using the models,
     specified in the `models` dictionary.
@@ -257,9 +272,12 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
     models: dict
         Models to run and a list of parameters to use when tuning them
 
-    seed: int, defalt: None
+    seed: int, default: None
         Random state to ensure reproducibility of experiment. Leave None if you
         want to run random experiment
+
+    k: int, default: 5
+        Number of groups in K-fold cross validation
 
     Returns
     -------
@@ -267,15 +285,14 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         Results (in form of a dict) for each model, specified in models
     """
     results = {}
-    train, val, test = train_val_test_split(df_offline, train_prop=train_prop, val_prop=val_prop,
-                                            test_prop=test_prop, seed=seed)
-    print("{} examples in training, {} in validation and {} in test set...".format(train.shape[0],
-                                                                                   val.shape[0],
-                                                                                   test.shape[0]))
+    train, test = train_test_split(df_offline,
+                                   shuffle=True,
+                                   test_size=test_prop,
+                                   random_state=seed)
+    print("{} examples in training and {} in test set...".format(train.shape[0], test.shape[0]))
 
     # only use the provided features and label
     train_X, train_y = train[feats], train[label]
-    val_X, val_y = val[feats], val[label]
     test_X, test_y = test[feats], test[label]
 
     knn_properties = models.get("knn", None)
@@ -284,17 +301,17 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         neigh_params = knn_properties.get("neigh_params", [1, 3, 5, 10, 20])
         weight_params = knn_properties.get("weight_params", ["uniform", "distance"])
 
-        best_k, best_weights, best_err = tune_knn(train_X, train_y, val_X, val_y,
+        best_k, best_weights, best_err = tune_knn(train_X, train_y,
                                                   neigh_params=neigh_params,
-                                                  weight_params=weight_params)
+                                                  weight_params=weight_params,
+                                                  k=k)
 
         print("Winning parameters for KNN: k={:d}, weights='{:s}'... "
               "Obtained error: {:.5f}".format(best_k, best_weights, best_err))
         knn = KNeighborsRegressor(n_neighbors=best_k,
                                   weights=best_weights,
                                   n_jobs=-1)
-        knn.fit(pd.concat([train_X, val_X], ignore_index=True),
-                pd.concat([train_y, val_y], ignore_index=True))
+        knn.fit(train_X, train_y)
         offline_test_preds = knn.predict(test_X)
         offline_error = rmsle(offline_test_preds, test_y)
 
@@ -309,16 +326,16 @@ def run_models(df_offline, feats, label, train_prop, val_prop, test_prop, models
         alpha_params = ridge_properies.get("alpha_params", [0.001, 0.002, 0.005, 0.01, 0.02, 0.05,
                                                             0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
 
-        best_alpha, best_err = tune_ridge(train_X, train_y, val_X, val_y,
+        best_alpha, best_err = tune_ridge(train_X, train_y,
                                           alpha_params=alpha_params,
-                                          seed=seed)
+                                          seed=seed,
+                                          k=k)
 
         print("Winning parameters for Ridge regression: alpha={:.3f}... "
               "Obtained error: {:.5f}".format(best_alpha, best_err))
         ridge = Ridge(alpha=best_alpha,
                       random_state=seed)
-        ridge.fit(pd.concat([train_X, val_X], ignore_index=True),
-                  pd.concat([train_y, val_y], ignore_index=True))
+        ridge.fit(train_X, train_y)
         offline_test_preds = ridge.predict(test_X)
         offline_error = rmsle(offline_test_preds, test_y)
 
