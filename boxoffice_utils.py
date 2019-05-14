@@ -533,3 +533,26 @@ def onehot_original_language(df, lang_encoder):
 
     extended_df = df.join(pd.DataFrame(original_lang_onehot, columns=lang_cols))
     return extended_df, lang_cols
+
+
+def add_cast_count(df):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    extended_df:
+        Augmented DataFrame ([0]) with the new cast_count column
+    """
+    cast_nums = np.zeros(df.shape[0])
+    for i, row in enumerate(df["cast"]):
+        json_row = json.loads(row)
+        cast_nums[i] = len(json_row)
+
+    extended_df = df.join(pd.DataFrame(cast_nums, columns=["cast_count"]))
+    
+    return extended_df

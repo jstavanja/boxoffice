@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
-    write_submission, onehot_genres, onehot_original_language
+    write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_cast_count
 import json
 
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     df_test = fix_genres(df_test)
     df_test = fix_runtime(df_test)
 
-    FEATS = ["runtime"]
+    FEATS = ["runtime", "budget", "popularity", "cast_count"]
     LABEL = ["revenue"]
 
     # Find unique genres and assign indices to them
@@ -30,6 +30,7 @@ if __name__ == "__main__":
                 idx_genre += 1
 
     df_offline = fix_broken_json_values(df_offline, 'cast')
+    df_offline = add_cast_count(df_offline)
 
     # Turn variable-length genre information into fixed-size one-hot encoded attributes
     df_offline, genre_cols = onehot_genres(df_offline, genre_encoder)
