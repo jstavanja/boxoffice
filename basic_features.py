@@ -29,6 +29,8 @@ if __name__ == "__main__":
                 genre_encoder[curr_genre] = idx_genre
                 idx_genre += 1
 
+    df_offline = fix_broken_json_values(df_offline, 'cast')
+
     # Turn variable-length genre information into fixed-size one-hot encoded attributes
     df_offline, genre_cols = onehot_genres(df_offline, genre_encoder)
     df_test, _ = onehot_genres(df_test, genre_encoder)

@@ -65,6 +65,18 @@ def fix_train_budget_revenue(train_df):
 
     return train_df
 
+# Fixes broken json column values from the dataset (single and double quotes issue)
+# e.g. {'name': "Donners' Company", ... -> {"name": "Donners\' Company", ...
+def fix_broken_json_values(train_df, col_name):
+    for i in range(train_df.shape[0]):
+        broken_json = train_df.at[i, col_name]
+        if isinstance(broken_json, str):
+            train_df.at[i, col_name] = json.dumps(eval(broken_json))
+        else:
+            # TODO: find a more universal thing for when broken_json = nan or something else that's weird
+            train_df.at[i, col_name] = "[]"
+    return train_df
+
 
 # Adds genre information for the examples in training/test set that currently don't have it
 def fix_genres(df):
