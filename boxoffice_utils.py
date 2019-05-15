@@ -535,7 +535,8 @@ def onehot_original_language(df, lang_encoder):
     return extended_df, lang_cols
 
 
-def add_cast_count(df):
+
+def add_important_cast_count(df):
     """
     Parameters
     ----------
@@ -548,11 +549,19 @@ def add_cast_count(df):
     extended_df:
         Augmented DataFrame ([0]) with the new cast_count column
     """
+    with open("data/top100actors.json") as actors:
+        top_100_actors = json.load(actors)
+
     cast_nums = np.zeros(df.shape[0])
     for i, row in enumerate(df["cast"]):
         json_row = json.loads(row)
-        cast_nums[i] = len(json_row)
+        important_actors = 0
+        for entry in json_row:
+            if entry["name"] in top_100_actors:
+                important_actors += 1
 
-    extended_df = df.join(pd.DataFrame(cast_nums, columns=["cast_count"]))
+        cast_nums[i] = important_actors
+
+    extended_df = df.join(pd.DataFrame(cast_nums, columns=["important_cast_count"]))
     
     return extended_df
