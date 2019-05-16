@@ -591,7 +591,7 @@ def prod_count_comp_lang_count(df, feature):
     return extended_df
 
 
-def producer_director_writer_count(df, file, feature):
+def top_producer_director_writer(df, file, feature):
     """
     Parameters
     ----------
@@ -602,12 +602,12 @@ def producer_director_writer_count(df, file, feature):
     Returns
     -------
     extended_df:
-        Augmented DataFrame ([0]) with the new crew_<job>_count column
+        Augmented DataFrame ([0]) with the new top_crew_<job> column
     """
     with open(file) as crew_mem:
         top_crew_mems = json.load(crew_mem)
 
-    crew_count = np.zeros(df.shape[0])
+    crew = np.zeros(df.shape[0])
     for i, row in enumerate(df["crew"]):
         json_row = json.loads(row)
         top_crew = 0
@@ -616,10 +616,10 @@ def producer_director_writer_count(df, file, feature):
             if job == feature:
                 crew_name = entry["name"]
                 if crew_name in top_crew_mems:
-                    top_crew += 1
+                    top_crew = 1
 
-        crew_count[i] = top_crew
+        crew[i] = top_crew
 
-    extended_df = df.join(pd.DataFrame(crew_count, columns=["crew_"+feature.lower()+"_count"]))
+    extended_df = df.join(pd.DataFrame(crew, columns=["top_crew_"+feature.lower()]))
     
     return extended_df
