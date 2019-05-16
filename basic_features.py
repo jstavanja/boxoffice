@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
-    write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count
+    write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count, \
+    prod_count_comp_lang_count, producer_director_writer_count
+
 import json
 
 if __name__ == "__main__":
@@ -39,16 +41,35 @@ if __name__ == "__main__":
     df_offline = add_important_cast_count(df_offline)
     FEATS.extend(["important_cast_count"])
 
-    # Select languages with more than 5 examples in training set
-    # (group other languages under "other_lang")
-    lang_counts = df_offline["original_language"].value_counts()
-    original_langs = lang_counts.index.values[lang_counts >= 5]
-    original_langs = np.append(original_langs, "other_lang")
-    lang_encoder = dict(zip(original_langs, range(original_langs.shape[0])))
+    """
+    Features: 
+        crew
+        - top directors count
+        - top screenplay writers count
+        - top producers count
+        spoken languages count
+    """
 
-    df_offline, lang_cols = onehot_original_language(df_offline, lang_encoder)
-    df_test, _ = onehot_original_language(df_test, lang_encoder)
-    FEATS.extend(lang_cols)
+    df_offline = fix_broken_json_values(df_offline, "crew")
+    df_test = fix_broken_json_values(df_test, "crew")
+    
+    df_offline = producer_director_writer_count(df_offline, "data/top100directors.json", "Director")
+    df_test = producer_director_writer_count(df_test, "data/top100directors.json", "Director")
+    FEATS.extend(["crew_director_count"])
+    
+    df_offline = producer_director_writer_count(df_offline, "data/top100writers.json", "Screenplay")
+    df_test = producer_director_writer_count(df_test, "data/top100writers.json", "Screenplay")
+    FEATS.extend(["crew_screenplay_count"])
+    
+    df_offline = producer_director_writer_count(df_offline, "data/top_producers.json", "Producer")
+    df_test = producer_director_writer_count(df_test, "data/top_producers.json", "Producer")
+    FEATS.extend(["crew_producer_count"]) 
+
+    df_offline = fix_broken_json_values(df_offline, "spoken_languages")
+    df_test = fix_broken_json_values(df_test, "spoken_languages")
+    df_offline = prod_count_comp_lang_count(df_offline, "spoken_languages")
+    df_test = prod_count_comp_lang_count(df_test, "spoken_languages")
+    FEATS.extend(["spoken_languages_count"])     
 
     model_props = {"xgb": {}}
     # model_props = {"knn": {},

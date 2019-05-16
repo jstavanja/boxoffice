@@ -531,9 +531,10 @@ def onehot_original_language(df, lang_encoder):
         idx_lang = lang_encoder.get(row, lang_encoder["other_lang"])
         original_lang_onehot[i, idx_lang] = 1
 
+    #print(lang_cols)
+    
     extended_df = df.join(pd.DataFrame(original_lang_onehot, columns=lang_cols))
     return extended_df, lang_cols
-
 
 
 def add_important_cast_count(df):
@@ -563,5 +564,62 @@ def add_important_cast_count(df):
         cast_nums[i] = important_actors
 
     extended_df = df.join(pd.DataFrame(cast_nums, columns=["important_cast_count"]))
+    
+    return extended_df
+
+
+def prod_count_comp_lang_count(df, feature):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    extended_df:
+        Augmented DataFrame ([0]) with the new <feature>_count column
+    """
+    feature_applied = df[feature].apply(lambda x: len(x))
+    feature_cols = np.zeros(df.shape[0])
+    for idx, count in enumerate(feature_applied):
+        feature_cols[idx] = count
+
+    extended_df = df.join(pd.DataFrame(feature_cols, columns=[feature+"_count"]))
+    
+    return extended_df
+
+
+def producer_director_writer_count(df, file, feature):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    extended_df:
+        Augmented DataFrame ([0]) with the new crew_<job>_count column
+    """
+    with open(file) as crew_mem:
+        top_crew_mems = json.load(crew_mem)
+
+    crew_count = np.zeros(df.shape[0])
+    for i, row in enumerate(df["crew"]):
+        json_row = json.loads(row)
+        top_crew = 0
+        for entry in json_row:
+            job = entry["job"]
+            if job == feature:
+                crew_name = entry["name"]
+                if crew_name in top_crew_mems:
+                    top_crew += 1
+
+        crew_count[i] = top_crew
+
+    extended_df = df.join(pd.DataFrame(crew_count, columns=["crew_"+feature.lower()+"_count"]))
     
     return extended_df
