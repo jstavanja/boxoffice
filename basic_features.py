@@ -3,7 +3,7 @@ import pandas as pd
 import xgboost as xgb
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
     write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count, \
-    prod_count_comp_lang_count, top_producer_director_writer
+    prod_count_comp_lang_count, top_producer_director_writer, release_day
 
 import json
 
@@ -84,6 +84,11 @@ if __name__ == "__main__":
     df_offline = prod_count_comp_lang_count(df_offline, "production_countries")
     df_test = prod_count_comp_lang_count(df_test, "production_countries")
     FEATS.extend(["production_countries_count"]) 
+
+    df_offline = release_day(df_offline)
+    df_test = release_day(df_test)
+    FEATS.extend(["is_weekend"])
+    FEATS.extend(["release_day"])
 
     model_props = {"xgb": {}}
     # model_props = {"knn": {},

@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 import xgboost as xgb
+import datetime
 
 from sklearn.metrics import mean_squared_log_error
 from sklearn.model_selection import train_test_split, KFold
@@ -621,5 +622,44 @@ def top_producer_director_writer(df, file, feature):
         crew[i] = top_crew
 
     extended_df = df.join(pd.DataFrame(crew, columns=["top_crew_"+feature.lower()]))
+    
+    return extended_df
+
+
+def release_day(df):
+    """
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    extended_df:
+        Augmented DataFrame ([0]) with the is_weekend column and 
+        the release_day column
+    """
+    release_day_cols = np.zeros(df.shape[0])
+    is_weekend_cols = np.zeros(df.shape[0])
+    for idx, date in enumerate(df["release_date"]):
+        weekend = 0
+        weekday = 1
+        if not pd.isnull(date):
+            month, day, year = (int(x) for x in date.split('/'))
+            if year >= 19: 
+                year += 2000
+            else:
+                year += 1000
+            parsed_date = datetime.date(year, month, day)
+            weekday_idx = parsed_date.weekday()
+            if weekday_idx >= 4:
+                weekend = 1
+            weekday += weekday_idx
+        release_day_cols[idx] = weekday
+        is_weekend_cols[idx] = weekend
+
+    extended_df = df.join(pd.DataFrame(is_weekend_cols, columns=["is_weekend"]))
+    extended_df = extended_df.join(pd.DataFrame(release_day_cols, columns=["release_day"]))
     
     return extended_df
