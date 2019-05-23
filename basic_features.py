@@ -41,6 +41,17 @@ if __name__ == "__main__":
     df_offline = add_important_cast_count(df_offline)
     FEATS.extend(["important_cast_count"])
 
+    # Select languages with more than 5 examples in training set
+    # (group other languages under "other_lang")
+    lang_counts = df_offline["original_language"].value_counts()
+    original_langs = lang_counts.index.values[lang_counts >= 5]
+    original_langs = np.append(original_langs, "other_lang")
+    lang_encoder = dict(zip(original_langs, range(original_langs.shape[0])))
+
+    df_offline, lang_cols = onehot_original_language(df_offline, lang_encoder)
+    df_test, _ = onehot_original_language(df_test, lang_encoder)
+    FEATS.extend(lang_cols)
+
     """
     Features: 
         crew
@@ -85,10 +96,10 @@ if __name__ == "__main__":
     df_test = prod_count_comp_lang_count(df_test, "production_countries")
     FEATS.extend(["production_countries_count"]) 
 
-    df_offline = release_day(df_offline)
-    df_test = release_day(df_test)
+    df_offline, weekday_cols = release_day(df_offline)
+    df_test, weekday_cols = release_day(df_test)
     FEATS.extend(["is_weekend"])
-    FEATS.extend(["release_day"])
+    FEATS.extend(weekday_cols)
 
     model_props = {"xgb": {}}
     # model_props = {"knn": {},

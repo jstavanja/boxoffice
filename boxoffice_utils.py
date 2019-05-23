@@ -532,8 +532,6 @@ def onehot_original_language(df, lang_encoder):
         idx_lang = lang_encoder.get(row, lang_encoder["other_lang"])
         original_lang_onehot[i, idx_lang] = 1
 
-    #print(lang_cols)
-    
     extended_df = df.join(pd.DataFrame(original_lang_onehot, columns=lang_cols))
     return extended_df, lang_cols
 
@@ -644,7 +642,7 @@ def release_day(df):
     is_weekend_cols = np.zeros(df.shape[0])
     for idx, date in enumerate(df["release_date"]):
         weekend = 0
-        weekday = 1
+        weekday = 0
         if not pd.isnull(date):
             month, day, year = (int(x) for x in date.split('/'))
             if year >= 19: 
@@ -660,6 +658,14 @@ def release_day(df):
         is_weekend_cols[idx] = weekend
 
     extended_df = df.join(pd.DataFrame(is_weekend_cols, columns=["is_weekend"]))
-    extended_df = extended_df.join(pd.DataFrame(release_day_cols, columns=["release_day"]))
+
+    weekday_cols = [i for i in range(7)]
+
+    # onehot encoding for release day of the week
+    release_day_onehot = np.zeros((df.shape[0], 7))
+    for i in range(len(release_day_cols)):
+        release_day_onehot[i, int(release_day_cols[i])] = 1
+
+    extended_df = extended_df.join(pd.DataFrame(release_day_onehot, columns=weekday_cols))
     
-    return extended_df
+    return extended_df, weekday_cols
