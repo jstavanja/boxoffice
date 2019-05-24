@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import Ridge
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
     write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count, \
     prod_count_comp_lang_count, top_producer_director_writer, release_day
@@ -145,6 +146,10 @@ if __name__ == "__main__":
     #                                 n_jobs=-1)
     # curr_rf.fit(df_offline_X, df_offline_y)
     # df_test["revenue"] = curr_rf.predict(df_test_X)
+
+    # curr_ridge = Ridge(alpha=10.0, random_state=None)
+    # curr_ridge.fit(df_offline_X, df_offline_y)
+    # df_test["revenue"] = curr_ridge.predict(df_test_X)
 
     # df_test = df_test[["id", "revenue"]]
     # write_submission(df_test, "support_me_on_patreon.csv")
