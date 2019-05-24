@@ -139,6 +139,13 @@ if __name__ == "__main__":
     # knn.fit(df_offline_X, df_offline_y)
     # df_test["revenue"] = knn.predict(df_test_X)
 
+    # curr_rf = RandomForestRegressor(n_estimators=50,
+    #                                 criterion="mae",
+    #                                 random_state=None,
+    #                                 n_jobs=-1)
+    # curr_rf.fit(df_offline_X, df_offline_y)
+    # df_test["revenue"] = curr_rf.predict(df_test_X)
+
     # df_test = df_test[["id", "revenue"]]
     # write_submission(df_test, "support_me_on_patreon.csv")
 
