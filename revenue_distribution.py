@@ -32,6 +32,7 @@ if __name__ == "__main__":
     cnts = cnts / np.sum(cnts)
 
     plt.figure(figsize=(8, 5))
+    plt.title("Revenue distribution in offline dataset", fontdict={"fontsize": 18})
     plt.plot(uniqs, cnts, color="darkviolet")
     plt.xlabel("Revenue (in millions of \$)", fontdict={"fontsize": 14})
     plt.ylabel("Proportion of movies", fontdict={"fontsize": 14})
@@ -42,7 +43,7 @@ if __name__ == "__main__":
     landmark_movie("Cars 2", "Cars 2", 75)
     landmark_movie("Deadpool", "Deadpool", 110)
     landmark_movie("The Dark Knight", " The\n Dark\nKnight", 70)
-    landmark_movie("The Avengers", "???", 40)
+    landmark_movie("The Avengers", "???", 30)
 
     plt.savefig("img/revenue_distribution.png")
     # plt.show()
