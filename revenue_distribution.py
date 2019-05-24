@@ -13,7 +13,7 @@ def landmark_movie(original_name, display_name, offset):
     plt.plot([norm_revenue, norm_revenue], [0.0, 0.05],
              '--', color="midnightblue")
     plt.plot(norm_revenue, 0.05, "^", color="midnightblue")
-    plt.text(norm_revenue - offset, 0.055, display_name)
+    plt.text(norm_revenue - offset, 0.055, display_name, fontdict={"fontsize": 11})
 
 
 if __name__ == "__main__":
@@ -31,18 +31,19 @@ if __name__ == "__main__":
     uniqs, cnts = np.unique(inds, return_counts=True)
     cnts = cnts / np.sum(cnts)
 
+    plt.figure(figsize=(8, 5))
     plt.plot(uniqs, cnts, color="darkviolet")
-    plt.xlabel("Revenue (in millions of \$)")
-    plt.ylabel("Proportion of movies")
-
-    tmp = df_offline[(1100000000 < df_offline["revenue"]) & (df_offline["revenue"] < 1400000000)]
-    print(tmp["original_title"])
+    plt.xlabel("Revenue (in millions of \$)", fontdict={"fontsize": 14})
+    plt.ylabel("Proportion of movies", fontdict={"fontsize": 14})
+    plt.xticks(np.arange(0, np.max(inds) + 1, step=200), fontsize=14)
+    plt.yticks(fontsize=14)
 
     landmark_movie("Space Jam", "Space Jam", 100)
     landmark_movie("Cars 2", "Cars 2", 75)
-    landmark_movie("Deadpool", "Deadpool", 100)
-    landmark_movie("The Dark Knight", "The Dark Knight", 100)
-    landmark_movie("The Avengers", "The\nAvengers", 100)
+    landmark_movie("Deadpool", "Deadpool", 110)
+    landmark_movie("The Dark Knight", " The\n Dark\nKnight", 70)
+    landmark_movie("The Avengers", "???", 40)
 
-    plt.show()
+    plt.savefig("img/revenue_distribution.png")
+    # plt.show()
 
