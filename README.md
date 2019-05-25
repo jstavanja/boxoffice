@@ -35,6 +35,8 @@ The approaches are briefly described in the next section.
 |:---------:|:--------:|:-----------------:|  
 | Baseline  |  3.70140 | 3.73362           |  
 | Basic features  |  2.34904 | 2.88622     |  
+| All features (excluded budget < 100) | 1.55815 | 2.52469 |
+| 4 Features (budget - excluded < 100, popularity, runtime, genres) | 1.55607 | 2.51451 |
 
 ## Approaches
 `Baseline`:  predict mean revenue of movies in training set for the movies of test set.

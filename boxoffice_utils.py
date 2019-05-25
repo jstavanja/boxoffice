@@ -70,6 +70,7 @@ def fix_train_budget_revenue(train_df):
 # e.g. {'name': "Donners' Company", ... -> {"name": "Donners\' Company", ...
 def fix_broken_json_values(train_df, col_name):
     for i in range(train_df.shape[0]):
+        #print(i)
         broken_json = train_df.at[i, col_name]
         if isinstance(broken_json, str):
             train_df.at[i, col_name] = json.dumps(eval(broken_json))
@@ -636,8 +637,10 @@ def release_day(df):
     -------
     extended_df:
         Augmented DataFrame ([0]) with the is_weekend column and 
-        the release_day column
+        the release_day columns
     """
+    num_weekdays = 7
+
     release_day_cols = np.zeros(df.shape[0])
     is_weekend_cols = np.zeros(df.shape[0])
     for idx, date in enumerate(df["release_date"]):
@@ -659,13 +662,72 @@ def release_day(df):
 
     extended_df = df.join(pd.DataFrame(is_weekend_cols, columns=["is_weekend"]))
 
-    weekday_cols = [i for i in range(7)]
+    weekday_cols = [i for i in range(num_weekdays)]
 
     # onehot encoding for release day of the week
-    release_day_onehot = np.zeros((df.shape[0], 7))
+    release_day_onehot = np.zeros((df.shape[0], num_weekdays))
     for i in range(len(release_day_cols)):
         release_day_onehot[i, int(release_day_cols[i])] = 1
 
     extended_df = extended_df.join(pd.DataFrame(release_day_onehot, columns=weekday_cols))
     
     return extended_df, weekday_cols
+
+
+def filter_budget(df, budget):
+    """
+    keeps rows with budget value > budget
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+    budget:
+        integer constraint
+
+    Returns
+    -------
+    df 
+    """
+    df = df[df.budget > budget]
+    df = df.reset_index(drop=True)
+    return df
+
+
+def fix_budget_mean(df):
+    """
+    replaces budget value 0 with budget mean of df
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    df 
+    """
+    budget_mean = df["budget"].mean()
+    df = df["budget"].replace(to_replace = 0, value = int(budget_mean))
+    return df
+
+
+def filter_rumored(df):
+    """
+    keeps rows with status Released - removes rumoured movies from df
+
+    Parameters
+    ----------
+
+    df: pd.DataFrame
+        Data
+
+    Returns
+    -------
+    df 
+    """
+    df = df[df.status == 'Released']
+    df = df.reset_index(drop=True)
+    return df

@@ -3,7 +3,7 @@ import pandas as pd
 import xgboost as xgb
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
     write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count, \
-    prod_count_comp_lang_count, top_producer_director_writer, release_day
+    prod_count_comp_lang_count, top_producer_director_writer, release_day, filter_budget, fix_budget_mean, filter_rumored
 
 import json
 
@@ -15,6 +15,18 @@ if __name__ == "__main__":
     df_offline = fix_runtime(df_offline)
     df_test = fix_genres(df_test)
     df_test = fix_runtime(df_test)
+
+    # exluding rows with budget < budget_constraint
+    budget_constraint = 100
+    # budget_constraint = 1000
+    df_offline = filter_budget(df_offline, budget_constraint)
+
+    # replacing budgets with value 0 to budget.mean()
+    # df_offline["budget"] = fix_budget_mean(df_offline)
+    # df_test["budget"] = fix_budget_mean(df_test)
+
+    # remove rumoured movies from the dataset
+    df_offline = filter_rumored(df_offline)
 
     FEATS = ["runtime", "budget", "popularity"]
     LABEL = ["revenue"]
@@ -31,7 +43,9 @@ if __name__ == "__main__":
                 genre_encoder[curr_genre] = idx_genre
                 idx_genre += 1
 
+
     df_offline = fix_broken_json_values(df_offline, 'cast')
+    df_test = fix_broken_json_values(df_test, "cast")
 
     # Turn variable-length genre information into fixed-size one-hot encoded attributes
     df_offline, genre_cols = onehot_genres(df_offline, genre_encoder)
@@ -39,6 +53,7 @@ if __name__ == "__main__":
     FEATS.extend(genre_cols)
 
     df_offline = add_important_cast_count(df_offline)
+    df_test = add_important_cast_count(df_test)
     FEATS.extend(["important_cast_count"])
 
     # Select languages with more than 5 examples in training set
@@ -94,7 +109,7 @@ if __name__ == "__main__":
     df_test = fix_broken_json_values(df_test, "production_countries")
     df_offline = prod_count_comp_lang_count(df_offline, "production_countries")
     df_test = prod_count_comp_lang_count(df_test, "production_countries")
-    FEATS.extend(["production_countries_count"]) 
+    FEATS.extend(["production_countries_count"])
 
     df_offline, weekday_cols = release_day(df_offline)
     df_test, weekday_cols = release_day(df_test)
@@ -116,19 +131,19 @@ if __name__ == "__main__":
     # -------------------------
     # PREPARE A SUBMISSION FILE
     # -------------------------
-    # df_offline_X = df_offline[FEATS]
-    # df_offline_y = df_offline[LABEL]
-    # df_test_X = df_test[FEATS]
+    df_offline_X = df_offline[FEATS]
+    df_offline_y = df_offline[LABEL]
+    df_test_X = df_test[FEATS]
     # parameters previously tuned
-    # bst = xgb.train({"n_gpus": 0,
-    #                  "nthread": -1,
-    #                  "learning_rate": 0.005,
-    #                  "reg_lambda": 0.5},
-    #                 xgb.DMatrix(df_offline_X, label=df_offline_y),
-    #                 num_boost_round=50)
-    # df_test["revenue"] = bst.predict(xgb.DMatrix(df_test_X))
-    # df_test = df_test[["id", "revenue"]]
-    # write_submission(df_test, "basic_feats_submission.csv")
+    bst = xgb.train({"n_gpus": 0,
+                      "nthread": -1,
+                      "learning_rate": 0.005,
+                      "reg_lambda": 0.5},
+                     xgb.DMatrix(df_offline_X, label=df_offline_y),
+                     num_boost_round=50)
+    df_test["revenue"] = bst.predict(xgb.DMatrix(df_test_X))
+    df_test = df_test[["id", "revenue"]]
+    write_submission(df_test, "all_feats_budget_mean.csv")
 
 
 
