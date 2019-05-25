@@ -2,9 +2,10 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.linear_model import Ridge
 from boxoffice_utils import fix_train_budget_revenue, fix_genres, fix_runtime, run_models, \
     write_submission, onehot_genres, onehot_original_language, fix_broken_json_values, add_important_cast_count, \
-    prod_count_comp_lang_count, top_producer_director_writer, release_day
+    prod_count_comp_lang_count, top_producer_director_writer, release_day, filter_budget, fix_budget_mean, filter_rumored
 
 import json
 
@@ -16,6 +17,18 @@ if __name__ == "__main__":
     df_offline = fix_runtime(df_offline)
     df_test = fix_genres(df_test)
     df_test = fix_runtime(df_test)
+
+    # exluding rows with budget < budget_constraint
+    budget_constraint = 100
+    # budget_constraint = 1000
+    df_offline = filter_budget(df_offline, budget_constraint)
+
+    # replacing budgets with value 0 to budget.mean()
+    # df_offline["budget"] = fix_budget_mean(df_offline)
+    # df_test["budget"] = fix_budget_mean(df_test)
+
+    # remove rumoured movies from the dataset
+    df_offline = filter_rumored(df_offline)
 
     FEATS = ["runtime", "budget", "popularity"]
     LABEL = ["revenue"]
@@ -31,6 +44,7 @@ if __name__ == "__main__":
             if existing_idx is None:
                 genre_encoder[curr_genre] = idx_genre
                 idx_genre += 1
+
 
     # Turn variable-length genre information into fixed-size one-hot encoded attributes
     df_offline, genre_cols = onehot_genres(df_offline, genre_encoder)
@@ -97,7 +111,7 @@ if __name__ == "__main__":
     df_test = fix_broken_json_values(df_test, "production_countries")
     df_offline = prod_count_comp_lang_count(df_offline, "production_countries")
     df_test = prod_count_comp_lang_count(df_test, "production_countries")
-    FEATS.extend(["production_countries_count"]) 
+    FEATS.extend(["production_countries_count"])
 
     df_offline, weekday_cols = release_day(df_offline)
     df_test, weekday_cols = release_day(df_test)
@@ -138,6 +152,17 @@ if __name__ == "__main__":
     #                             n_jobs=-1)
     # knn.fit(df_offline_X, df_offline_y)
     # df_test["revenue"] = knn.predict(df_test_X)
+
+    # curr_rf = RandomForestRegressor(n_estimators=50,
+    #                                 criterion="mae",
+    #                                 random_state=None,
+    #                                 n_jobs=-1)
+    # curr_rf.fit(df_offline_X, df_offline_y)
+    # df_test["revenue"] = curr_rf.predict(df_test_X)
+
+    # curr_ridge = Ridge(alpha=10.0, random_state=None)
+    # curr_ridge.fit(df_offline_X, df_offline_y)
+    # df_test["revenue"] = curr_ridge.predict(df_test_X)
 
     # df_test = df_test[["id", "revenue"]]
     # write_submission(df_test, "support_me_on_patreon.csv")
