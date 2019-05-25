@@ -31,12 +31,12 @@ not have it.
 Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.
 The approaches are briefly described in the next section.  
 
-| Approach  | Offline  | Kaggle submission |  
-|:---------:|:--------:|:-----------------:|  
-| Baseline  |  3.70140 | 3.73362           |  
-| Basic features  |  2.34904 | 2.88622     |  
-| All features (excluded budget < 100) | 1.55815 | 2.52469 |
-| 4 Features (budget - excluded < 100, popularity, runtime, genres) | 1.55607 | 2.51451 |
+| Approach  	  | Offline  | Kaggle submission |  
+|:---------------:|:--------:|:-----------------:|  
+| Baseline  	  |  3.70140 | 3.73362           |  
+| Basic features  |  2.34904 | 2.88622           |  
+| All features    |  1.55815 | 2.52469           |
+| 4 Features      |  1.55607 | 2.51451           |
 
 ## Approaches
 `Baseline`:  predict mean revenue of movies in training set for the movies of test set.
@@ -48,3 +48,10 @@ of genres provided for film). Group less frequent original_languages (< 5 occure
 in training set) under 'other' attribute.
 70%-10%-20% train-val-test-split used for offline evaluation. Best score obtained 
 with XGBoost.
+
+`All features`: use all of the features: runtime, popularity, budget (excluded budgets < 100),
+original_language, spoken_langugate, important_cast_count, top_director/writer/producer, 
+production_companies/countries_count, is_weekend, release_weekday
+
+`All features`: use four original features: popularity, runtime, budget (excluded budgets < 100),
+and genres.

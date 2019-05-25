@@ -412,7 +412,7 @@ def run_models(df_offline, feats, label, test_prop, models, seed=None, k=5):
     if rf_properties is not None:
         # user-provided or "reasonable" default parameter options
         n_estimators_params = rf_properties.get("n_estimators_params", [50, 100, 200, 500, 1000,
-                                                                        2000, 5000])
+                                                                        2000])
 
         best_n_trees, best_err = tune_rf(train_X, train_y,
                                          n_estimators_params=n_estimators_params,
