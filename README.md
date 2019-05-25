@@ -31,13 +31,17 @@ not have it.
 Using root mean squared logarithmic error (RMSLE) as it is used for submission scoring on Kaggle.
 The approaches are briefly described in the next section.  
 
-| Approach  	  | Offline  | Kaggle submission |  
-|:---------------:|:--------:|:-----------------:|  
-| Baseline  	  |  3.70140 | 3.73362           |  
-| Basic features  |  2.34904 | 2.88622           |  
-| All features    |  1.55815 | 2.52469           |
-| 4 Features      |  1.55607 | 2.51451           |
-
+| Approach  	                         | Offline  | Kaggle submission |  
+|:--------------------------------------:|:--------:|:-----------------:|  
+| Baseline  	                         |  3.70140 | 3.73362           |
+| Basic features (XGB)                   |  2.34904 | 2.88622           |  
+| All features (high budget movies + XGB)|  1.55815 | 2.52469           |
+| 4 Features (high budget movies + XGB)  |  1.55607 | 2.51451           |
+| All features (all budget movies + XGB) |  1.97495 | 2.50815           |
+| 4 Features (all budget movies + XGB)   |  1.97298 | 2.51184           |
+| Best KNN (4 features)                  |  2.16379 | /                 |  
+| Best RF (4 features)                   |  2.10108 | /                 |
+| Best Ridge (4 features)                |  2.42697 | /                 |
 ## Approaches
 `Baseline`:  predict mean revenue of movies in training set for the movies of test set.
 70%-30% train-test split used for offline evaluation.
